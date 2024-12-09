@@ -107,17 +107,6 @@ kubectl create secret generic grafana-api-key \
 - Resource Usage
 - Custom Business Metrics
 
-## Support and Resources
-
-### Getting Help
-1. Internal Support:
-   - Slack: #grafana-support
-   - Email: grafana-admin@company.com
-
-2. Documentation:
-   - [Official Grafana Docs](https://grafana.com/docs/)
-   - [Internal Wiki](internal-wiki-link)
-
 ### Common Issues
 
 #### Cannot Access Dashboard
