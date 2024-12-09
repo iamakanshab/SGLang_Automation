@@ -191,3 +191,5 @@ aws rds create-db-snapshot \
     --db-instance-identifier llm-metrics \
     --db-snapshot-identifier metrics-backup-$(date +%Y%m%d)
 ```
+
+## TODO: Run a scheduled maintenance every week, automate it
