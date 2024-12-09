@@ -25,6 +25,9 @@ Ensure these files are in your working directory:
 - `metrics-processor.py` - Metrics processing script
 - `metrics_pipeline.py` - Main pipeline script
 
+### Customer Intake (WIP)
+- Setup a github issue with the set of actions they need to run at their end
+
 ### Database Configuration
 The pipeline uses Amazon RDS MySQL. Your database connection details:
 ```
