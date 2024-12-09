@@ -8,7 +8,7 @@
 
 ## Setup Steps
 
-### 1. Configure Grafana API Key
+### 1. Configure Grafana API Key (Taken care of by AI Infra Team)
 If you haven't already set up the API key:
 ```bash
 # First ensure you're in the correct namespace
