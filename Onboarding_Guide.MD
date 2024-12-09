@@ -80,8 +80,6 @@ kubectl create secret generic grafana-api-key \
   -n monitoring
 ```
 
-See our [Dashboard Automation Guide](link-to-guide) for detailed setup.
-
 ## Examples
 
 ### Sample Dashboard Structure
