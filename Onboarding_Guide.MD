@@ -163,7 +163,7 @@ Create a ticket including:
 
 ### Backup and Recovery
 - Dashboards are automatically backed up daily
-- Recovery process documented in [DR Guide](dr-guide-link WIP)
+- Recovery process documented in [Guide](guide-link WIP)
 
 ## Future Updates
 - Upcoming features
