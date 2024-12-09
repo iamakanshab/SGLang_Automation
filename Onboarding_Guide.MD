@@ -1,171 +1,190 @@
-# Grafana Onboarding Guide
+# LLM Metrics Automation Pipeline Guide
 
-Welcome to our Grafana monitoring platform! This guide will help you get started with creating and managing your dashboards.
+## Overview
+This pipeline automatically collects, processes, and stores performance metrics for comparing Shortfin LLM Server with SGLang Server. The pipeline runs daily and handles:
+- Benchmark collection for both servers
+- Metrics processing and standardization
+- Data storage in RDS
+- Automatic dashboard updates in Grafana
 
-## Quick Start
-- **Dev Cluster URL**: http://abbd9a1ab0f904666978153cc034f473-729179930.us-west-2.elb.amazonaws.com (TO REPLACE WITH DOMAIN URL)
-- **Prod Cluster URL**: http://k8s-monitori-grafana-810b5f6f62-535518310.us-west-2.elb.amazonaws.com (TO REPLACE WITH DOMAIN URL)
+## Prerequisites
 
-## Access Requirements
-1. AWS Account access
-2. Kubernetes cluster access
-3. Basic understanding of metrics and visualization
-
-## Getting Started
-
-### 1. Request Access
-Contact your team administrator to:
-- Create a Grafana user account
-- Get added to appropriate teams/organizations
-- Receive necessary dashboard permissions
-
-### 2. Authentication
-We support two authentication methods:
-- Direct login with username/password
-- SSO authentication (recommended)
-
-### 3. Creating API Keys
-For automated dashboard updates:
-1. Navigate to Configuration → API Keys
-2. Click "Add API key"
-3. Set appropriate permissions:
-   - Viewer: Read-only access
-   - Editor: Can edit dashboards
-   - Admin: Full access (use cautiously)
-
-## Dashboard Management
-
-### Creating New Dashboards
-1. Click "+" in the side menu
-2. Select "Create New Dashboard"
-3. Choose visualization type:
-   - Graphs
-   - Tables
-   - Stats
-   - Heatmaps
-
-### Best Practices
-1. **Naming Convention**
-   ```
-   [Team]_[Service]_[MetricType]
-   Example: Team1_Authentication_Latency
-   ```
-
-2. **Dashboard Organization**
-   - Use folders for different teams/services
-   - Include description and documentation
-   - Tag dashboards appropriately
-
-3. **Panel Design**
-   - Clear titles and descriptions
-   - Consistent units
-   - Appropriate time ranges
-   - Helpful tooltips
-
-### Data Sources
-Currently supported data sources:
-- Prometheus
-- AWS CloudWatch
-- Custom JSON/CSV uploads
-
-## Automation
-
-### Using Our Dashboard Updater
-We provide a custom dashboard updater for automated metrics:
-
+### Software Requirements
 ```bash
-# Create required secret
-kubectl create secret generic grafana-api-key \
-  --from-literal=api-key=YOUR_API_KEY \
-  -n monitoring
+# Install required Python packages
+pip install schedule mysql-connector-python sqlalchemy pandas py7zr
+
+# Clone your benchmark repository (if applicable)
+git clone <your-benchmark-repo>
+cd <repo-directory>
 ```
 
-## Examples
+### Required Files
+Ensure these files are in your working directory:
+- `benchmark-collector.py` - Your benchmark collection script
+- `metrics-processor.py` - Metrics processing script
+- `metrics_pipeline.py` - Main pipeline script
 
-### Sample Dashboard Structure
-```json
-{
-  "dashboard": {
-    "title": "Service Metrics",
-    "tags": ["team1", "auth"],
-    "timezone": "browser",
-    "panels": [
-      {
-        "title": "Request Latency",
-        "type": "graph",
-        ...
-      }
-    ]
-  }
-}
+### Database Configuration
+The pipeline uses Amazon RDS MySQL. Your database connection details:
+```
+Host: llm-metrics.c3kwuosg6kjs.us-east-2.rds.amazonaws.com
+Database: llm_metrics(for example)
+Username: [user-name]
+Password: [password]
 ```
 
-### Common Metrics
-- Request Rate
-- Error Rate
-- Latency (p50, p95, p99)
-- Resource Usage
-- Custom Business Metrics
+## Pipeline Components
+
+### 1. Benchmark Collection
+- Runs benchmarks for multiple configurations:
+  - Request rates: 1, 2, 4, 8, 16, 32
+  - Servers: sglang, shortfin
+  - Model types: none, trie (for shortfin)
+- Metrics collected:
+  - Median E2E Latency
+  - Median TTFT (Time to First Token)
+  - Median ITL (Inter-Token Latency)
+  - Request Throughput
+  - Duration
+
+### 2. Metrics Processing
+- Processes raw benchmark data
+- Standardizes metrics format
+- Creates timestamped CSV files
+- Stores processed data in `./processed_data/`
+
+### 3. Database Loading
+- Automatically loads processed metrics to RDS
+- Maintains historical data
+- Enables time-series analysis
+- Supports Grafana visualization
+
+## Running the Pipeline
+
+### Manual Execution
+```bash
+# Run the complete pipeline once
+python metrics_pipeline.py
+
+# Run individual components
+python metrics_pipeline.py --collect-only  # Only collect benchmarks
+python metrics_pipeline.py --process-only  # Only process existing data
+python metrics_pipeline.py --load-only     # Only load to database
+```
+
+### Automated Scheduling
+The pipeline is configured to run daily at midnight using cron:
+
+1. Set up the cron job:
+```bash
+# Create the runner script
+cat << 'EOF' > run_pipeline.sh
+#!/bin/bash
+cd /home/cloudshell-user
+source ~/.bashrc
+python metrics_pipeline.py >> pipeline.log 2>&1
+EOF
+
+# Make executable
+chmod +x run_pipeline.sh
+
+# Add to crontab
+crontab -e
+# Add: 0 0 * * * /home/cloudshell-user/run_pipeline.sh
+```
+
+### Monitoring and Logs
+- Pipeline logs: `llm_pipeline.log`
+- Cron execution logs: `pipeline.log`
+- RDS metrics available in CloudWatch
+- Pipeline status viewable in Grafana
+
+## Data Structure
+
+### Database Schema
+```sql
+CREATE TABLE llm_metrics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    server VARCHAR(50),
+    date DATE,
+    request_rate INT,
+    model_type VARCHAR(50),
+    dataset VARCHAR(50),
+    input_tokens INT,
+    output_tokens INT,
+    output_tokens_retokenized INT,
+    mean_latency FLOAT,
+    median_latency FLOAT,
+    median_ttft FLOAT,
+    median_itl FLOAT,
+    throughput FLOAT,
+    duration FLOAT,
+    completed_requests INT,
+    tokens_per_second FLOAT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Grafana Integration
+- Data source: MySQL
+- Default dashboard provided
+- Key visualizations:
+  - Latency comparison
+  - Throughput analysis
+  - Request rate impact
+  - Token processing efficiency
+
+## Troubleshooting
 
 ### Common Issues
+1. **Benchmark Collection Fails**
+   - Check server accessibility
+   - Verify benchmark script parameters
+   - Check disk space for outputs
 
-#### Cannot Access Dashboard
-- Verify network connectivity
-- Check permissions
-- Ensure correct authentication
+2. **Database Connection Issues**
+   - Verify RDS security group settings
+   - Check credentials
+   - Confirm network connectivity
 
-#### Data Not Showing
-- Verify data source connection
-- Check metric names
-- Validate time range selection
+3. **Missing Data**
+   - Check pipeline logs
+   - Verify file permissions
+   - Ensure sufficient disk space
 
-## Security Guidelines
+### Pipeline Status Check
+```bash
+# Check pipeline status
+tail -f llm_pipeline.log
 
-### Best Practices
-1. Never share API keys
-2. Use appropriate permission levels
-3. Regularly rotate credentials
-4. Audit dashboard access
+# Check database connectivity
+python -c "import mysql.connector; mysql.connector.connect(host='your-rds-endpoint', user='admin', password='your-password', database='llm_metrics')"
 
-### Sensitive Data
-- No PII in dashboards
-- No credentials in queries
-- No sensitive business metrics without proper access control
+# Verify cron job
+crontab -l
+```
 
-## Contributing
+## Maintenance Tasks
 
-### Adding Features
-1. Fork the dashboard repository
-2. Make changes
-3. Submit PR for review
+### Regular Maintenance
+1. Log rotation:
+```bash
+# Compress old logs
+find . -name "*.log" -mtime +7 -exec gzip {} \;
+```
 
-### Reporting Issues
-Create a ticket including:
-- Dashboard URL
-- Expected behavior
-- Actual behavior
-- Screenshots if applicable
+2. Data cleanup:
+```bash
+# Remove processed files older than 7 days
+find ./processed_data -mtime +7 -exec rm {} \;
+```
 
-## Version Control
-
-### Dashboard Versions
-- All dashboards are version controlled
-- Use the "Save As" feature for major changes
-- Document significant updates
-
-## Maintenance
-
-### Regular Tasks
-- Review unused dashboards
-- Update API keys before expiration
-- Validate data source connections
-- Clean up old alerts
-
-### Backup and Recovery
-- Dashboards are automatically backed up daily
-- Recovery process documented in [Guide](guide-link WIP)
-
-## Future Updates
-- Upcoming features
-- Planned integrations
-- Migration schedules
+### Backup Procedures
+1. Database backup:
+```bash
+# Create RDS snapshot
+aws rds create-db-snapshot \
+    --db-instance-identifier llm-metrics \
+    --db-snapshot-identifier metrics-backup-$(date +%Y%m%d)
+```
